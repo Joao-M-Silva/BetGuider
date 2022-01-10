@@ -122,7 +122,8 @@ def df_extra_leagues_pp(df, seasons:list, seasons_info:dict, league:list, div:st
     
 
 def get_data_extra_leagues(seasons:list, url:str="https://www.football-data.co.uk/new/",):
-    with open('C:/Users/Asus/Documents/Python Scripts/BetGuider/Historical_Data/info_extra_leagues.json') as f:
+    #with open('C:/Users/F999181/OneDrive - Fidelidade Group/Documents/Python Scripts/BetGuider/BetGuider/Historical_Data/info_extra_leagues.json') as f:
+    with open('./Historical_Data/info_extra_leagues.json') as f:
         extra_leagues_info = json.load(f)
         
     dict_countries = {
