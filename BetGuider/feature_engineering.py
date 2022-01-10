@@ -91,6 +91,125 @@ def team_average_goals(x, df, home_away:str, seasons:list,
     
     return avg_goals
         
+
+def calculate_strenght(x, home_away:str, attack:bool, cs:bool, number_games:int=None):
+    """
+    Calculate offense and defense strenght
+
+    Parameters
+    ----------
+    x : 
+        row of the historical data dataframe.
+    home_away : str
+        reference to calculations
+        Options: Home, Away.
+    attack : bool
+        boolean to define attach or defense calculations.
+    cs : bool
+        boolean to define global or current season calculations.
+    number_games : int
+        number of games period
+    """
+    if home_away not in ['Home', 'Away']:
+        raise Exception('Bad home_away argument. Options are Home and Away.')
     
-                  
-                 
+    if cs == False and number_games:
+        raise Exception('While considering a sample of games the current season must be set to True (cs=True)')
+    
+    if home_away == 'Home':
+        if attack:
+            if cs:
+                if not number_games:
+                    return x['HT_Avg_G_Scored_CS'] / x['L_Avg_G_Sco_Home_CS']
+                else:
+                    return x[f'HT_Avg_G_Scored_{number_games}Games'] / x['L_Avg_G_Sco_Home_CS']
+            else:
+                return x['HT_Avg_G_Scored'] / x['L_Avg_G_Sco_Home']
+        else:
+            if cs:
+                if not number_games:
+                    return x['HT_Avg_G_Conceded_CS'] / x['L_Avg_G_Sco_Away_CS']
+                else:
+                    return x[f'HT_Avg_G_Conceded_{number_games}Games'] / x['L_Avg_G_Sco_Away_CS']
+            else:
+                return x['HT_Avg_G_Conceded'] / x['L_Avg_G_Sco_Away']
+    
+    elif home_away == 'Away':
+        if attack:
+            if cs:
+                if not number_games:
+                    return x['AT_Avg_G_Scored_CS'] / x['L_Avg_G_Sco_Away_CS']
+                else:
+                    return x[f'AT_Avg_G_Scored_{number_games}Games'] / x['L_Avg_G_Sco_Away_CS']
+            else:
+                return x['AT_Avg_G_Scored'] / x['L_Avg_G_Sco_Away']
+        else:
+            if cs:
+                if not number_games:
+                    return x['AT_Avg_G_Conceded_CS'] / x['L_Avg_G_Sco_Home_CS']
+                else:
+                    return x[f'AT_Avg_G_Conceded_{number_games}Games'] / x['L_Avg_G_Sco_Home_CS']
+            else:
+                return x['AT_Avg_G_Conceded'] / x['L_Avg_G_Sco_Home']
+                
+
+def goal_expectancy(x, home_away:str, cs:bool, number_games:int=None):
+    """
+    Calculate Goal Expectancy for the Home or Away Team
+
+    Parameters
+    ----------
+    x : 
+        row of the historical data dataframe.
+    home_away : str
+        reference to calculations
+        Options: Home, Away.
+    cs : bool
+        boolean to define global or current season calculations.
+    number_games : int
+        number of games period
+    """
+    if home_away not in ['Home', 'Away']:
+        raise Exception('Bad home_away argument. Options are Home and Away.')
+    
+    if cs == False and number_games:
+        raise Exception('While considering a sample of games the current season must be set to True (cs=True)')
+        
+    if home_away == 'Home':
+        if cs:
+            if not number_games:
+                home_attack_strenght = x['HT_Att_Strenght_CS']
+                away_defense_strenght = x['AT_Def_Strenght_CS']
+                goal_expectancy = home_attack_strenght*away_defense_strenght*x['L_Avg_G_Sco_Home_CS']
+                return goal_expectancy
+            else:
+                home_attack_strenght = x[f'HT_Att_Strenght_{number_games}Games']
+                away_defense_strenght = x[f'AT_Def_Strenght_{number_games}Games']
+                goal_expectancy = home_attack_strenght*away_defense_strenght*x['L_Avg_G_Sco_Home_CS']
+                return goal_expectancy
+            
+        else:
+            home_attack_strenght = x['HT_Att_Strenght']
+            away_defense_strenght = x['AT_Def_Strenght']
+            goal_expectancy = home_attack_strenght*away_defense_strenght*x['L_Avg_G_Sco_Home']
+            return goal_expectancy
+        
+    elif home_away == 'Away':
+        if cs:
+            if not number_games:
+                away_attack_strenght = x['AT_Att_Strenght_CS']
+                home_defense_strenght = x['HT_Def_Strenght_CS']
+                goal_expectancy = away_attack_strenght*home_defense_strenght*x['L_Avg_G_Sco_Away_CS']
+                return goal_expectancy
+            else:
+                away_attack_strenght = x[f'AT_Att_Strenght_{number_games}Games']
+                home_defense_strenght = x[f'HT_Def_Strenght_{number_games}Games']
+                goal_expectancy = away_attack_strenght*home_defense_strenght*x['L_Avg_G_Sco_Away_CS']
+                return goal_expectancy
+        else:
+            away_attack_strenght = x['AT_Att_Strenght']
+            home_defense_strenght = x['HT_Def_Strenght']
+            goal_expectancy = away_attack_strenght*home_defense_strenght*x['L_Avg_G_Sco_Away']
+            return goal_expectancy
+    
+    
