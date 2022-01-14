@@ -1,5 +1,6 @@
 import pandas as pd
 from datetime import date, timedelta
+from scipy.spatial import distance
 
 
 def league_average_goals(x, df, home_away:str, seasons:list):
@@ -36,8 +37,8 @@ def league_average_goals(x, df, home_away:str, seasons:list):
     return avg_goals
     
 
-def team_average_goals(x, df, home_away:str, seasons:list, 
-                       sample:int=None, scored_conceded:str='scored'):
+def team_average_stat(x, df, home_away:str, seasons:list, stat:str, 
+                      sample:int=None, scored_conceded:str='scored'):
     """
     Average Goals Scored or Conceded per Team
 
@@ -52,6 +53,8 @@ def team_average_goals(x, df, home_away:str, seasons:list,
         Options: Home, Away.
     seasons : list
         seasons of interest.
+    stat : str
+        stat of interest. Options -> goals, corners, shots
     sample : int, optional
         Number of games to include in the calculations. 
         The default is None.
@@ -65,7 +68,10 @@ def team_average_goals(x, df, home_away:str, seasons:list,
         raise Exception('Bad home_away argument. Options are Home and Away.')
     
     if scored_conceded not in ['scored', 'conceded']:
-        raise Exception('Bad scored_conceded argument. options are scored and conceded.')
+        raise Exception('Bad scored_conceded argument. Options are scored and conceded.')
+        
+    if stat not in ['goals', 'corners', 'shots']:
+        raise Exception('Bad stat argument. Options are goals, corners and shots.')
     
     game_date = x['Date']
     limit_date = game_date - timedelta(weeks=1)
@@ -76,21 +82,85 @@ def team_average_goals(x, df, home_away:str, seasons:list,
 
     if sample:
         df = df.sort_values('Date', ascending=False).head(sample)
-     
+    
     if scored_conceded == 'scored':
         conv_ = {'Home':'Home',
                  'Away':'Away',}
     elif scored_conceded == 'conceded':
         conv_ = {'Home':'Away',
                  'Away':'Home',}
-    
-    home_away = conv_[home_away]
-    total_goals = df[f'{home_away} Goals'].sum()
-    total_matchs = df.shape[0]
-    avg_goals = total_goals / total_matchs
-    
-    return avg_goals
         
+    if stat == 'goals':
+        home_away = conv_[home_away]
+        total_goals = df[f'{home_away} Goals'].sum()
+        total_matchs = df.shape[0]
+        avg_goals = total_goals / total_matchs
+        return avg_goals
+    
+    elif stat == 'corners':
+        home_away = conv_[home_away]
+        total_corners = df[f'{home_away} Corners'].sum()
+        total_matchs = df.shape[0]
+        avg_corners = total_corners / total_matchs
+        return avg_corners
+    
+    elif stat == 'shots':
+        home_away = conv_[home_away]
+        total_shots = df[f'{home_away} Shots Target'].sum()
+        total_matchs = df.shape[0]
+        avg_shots = total_shots / total_matchs
+        return avg_shots
+    
+
+def avg_final_results(x, df, result:str, home_away:str, seasons:list, sample:int=None):
+    """
+    Calculate average final result for the Home or Away Team
+
+    Parameters
+    ----------
+    x : 
+        row of the historical data dataframe.
+    result:
+        type of result.
+    home_away : str
+        reference to calculations
+        Options: Home, Away.
+    seasons : list
+        seasons of interest.
+    sample : int, optional
+        Number of games to include in the calculations. 
+        The default is None.
+    """
+    if home_away not in ['Home', 'Away']:
+        raise Exception('Bad home_away argument. Options are Home and Away.')
+        
+    game_date = x['Date']
+    limit_date = game_date - timedelta(weeks=1)
+    team = x[f'{home_away} Team']
+    query = f'(Date<=@limit_date) and (Season in @seasons) and (`{home_away} Team`==@team)'
+    query = query.replace('\n','')
+    df = df.query(query)
+    
+    if sample:
+        df = df.sort_values('Date', ascending=False).head(sample)
+        
+    total_matchs = df.shape[0]
+    if result == 'win':
+        number_wins = df[f'{home_away} Team Win'].sum()
+        return number_wins / total_matchs
+    
+    elif result == 'draw':
+        number_draws = df['Draw'].sum()
+        return number_draws / total_matchs
+    
+    elif result == 'loss':
+        conv_ = {'Home':'Away',
+                 'Away':'Home'}
+        
+        home_away = conv_[home_away]
+        number_losses = df[f'{home_away} Team Win'].sum()
+        return number_losses / total_matchs
+    
 
 def calculate_strenght(x, home_away:str, attack:bool, cs:bool, number_games:int=None):
     """
@@ -212,4 +282,87 @@ def goal_expectancy(x, home_away:str, cs:bool, number_games:int=None):
             goal_expectancy = away_attack_strenght*home_defense_strenght*x['L_Avg_G_Sco_Away']
             return goal_expectancy
     
+
+def stats_divergence(x, df, home_away:str, stat:str, seasons:list, scored_conceded:str='scored'):   
+    """
+    Calculate statistics divergence between seasons
     
+    Parameters
+    ----------
+    x : 
+        row of the historical data dataframe.
+    df : pd.DataFrame
+        historical data dataframe.
+    home_away : str
+        reference to calculations
+        Options: Home, Away.
+    stat : str
+        stat of interest. Options -> goals, corners, shots
+    seasons : list
+        seasons of interest
+    scored_conceded:str, optional
+        indicator to calculate average goals scored or conceded
+        The default is scored.
+        Options:
+            scored, conceded
+    """
+    if home_away not in ['Home', 'Away']:
+        raise Exception('Bad home_away argument. Options are Home and Away.')
+        
+    if len(seasons) != 2:
+        raise Exception("Lenght of seasons must be 2")
+        
+    if scored_conceded not in ['scored', 'conceded']:
+        raise Exception('Bad scored_conceded argument. Options are scored and conceded.')
+        
+    def calculate_probs(counts):
+        #Maximum value for a specific stat
+        max_ = int(max([(count.index.max()) for count in counts]))
+        #Add a zero count for mismatching values of a stat
+        #regarding different seasons
+        distributions = []
+        for count in counts:
+            dist_ = []
+            for index in range(0, max_+1):
+                try:
+                    dist_.append(count[index])
+                except KeyError:
+                    dist_.append(0)
+        
+            distributions.append(dist_)
+        
+        probs = [dist / sum(dist) for dist in distributions]
+        
+        return probs
+    
+    
+    game_date = x['Date']
+    limit_date = game_date - timedelta(weeks=1)
+    team = x[f'{home_away} Team']
+    counts = []
+    for season in seasons:
+        query = f'(Date<=@limit_date) and (Season == @season) and (`{home_away} Team`==@team)'
+        query = query.replace('\n','')
+        df_season = df.query(query)
+        
+        if scored_conceded == 'conceded':
+            conv_ = {'Home':'Away',
+                     'Away':'Home',}
+            home_away = conv_[home_away]
+    
+        if stat == 'goals':
+            values = df_season[f'{home_away} Goals'].value_counts()
+        
+        elif stat == 'corners':
+            values = df_season[f'{home_away} Corners'].value_counts()
+                
+        elif stat == 'shots':
+            values = df_season[f'{home_away} Shots Target'].value_counts()
+       
+        counts.append(values.sort_index())
+    
+    probs = calculate_probs(counts)
+    
+    return distance.jensenshannon(probs[0], probs[1])
+        
+        
